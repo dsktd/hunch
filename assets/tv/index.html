@@ -179,7 +179,7 @@ const SCREENS = {
   },
   question(s) {
     const r = tv.round;
-    return `<span class="cat">${esc(s.category)}</span> <span class="label muted">&nbsp; Q ${r.asked}/${r.questions}</span>
+    return `<span class="cat">${esc(s.category)}</span> <span class="label muted">&nbsp; Q ${Math.min(r.asked + 1, r.questions)}/${r.questions}</span>
       <div class="prompt paper">${esc(s.prompt)}</div>${tiles(s)}
       ${s.note ? `<div class="note">${esc(s.note)}</div>` : ""}`;
   },
