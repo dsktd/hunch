@@ -136,12 +136,7 @@ impl Server {
                 .expect("tokio runtime");
             runtime.block_on(async move {
                 // iroh lives until the game exits, whatever happens to the LAN server
-                let endpoint = match iroh::Endpoint::builder(iroh::endpoint::presets::N0)
-                    .relay_mode(relays())
-                    .alpns(vec![ALPN.to_vec()])
-                    .bind()
-                    .await
-                {
+                let endpoint = match bind_iroh().await {
                     Ok(endpoint) => {
                         let _ = id_tx.send(endpoint.id().to_string());
                         tokio::spawn(iroh_accept(endpoint.clone(), shared.clone()));
@@ -501,12 +496,18 @@ fn claim(
         .claim(token, SEAT_CAP, fresh)
 }
 
-/// n0's relays without the trailing dot iroh writes in their hostnames.
+/// Our own relay alone (`own_only`, so it is the home relay) or with n0's relays as fallback,
+/// those without the trailing dot iroh writes in their hostnames.
 ///
 /// `WebKit` (every iOS browser) rejects the TLS certificate of `use1-1.relay.n0.iroh.link.`, and phones dial the
 /// home relay this endpoint publishes. Same map as the pad's (`pad/src/lib.rs`).
-pub fn relays() -> iroh::RelayMode {
+pub fn relays(
+    own: &str,
+    own_only: bool,
+) -> iroh::RelayMode {
     use iroh::defaults::prod;
+    let own: iroh::RelayUrl = own.parse().expect("relay url");
+    let own = iroh::RelayConfig::from(own);
     let urls = [
         prod::NA_EAST_RELAY_HOSTNAME,
         prod::NA_WEST_RELAY_HOSTNAME,
@@ -519,7 +520,42 @@ pub fn relays() -> iroh::RelayMode {
             .expect("relay url");
         iroh::RelayConfig::from(url)
     });
-    iroh::RelayMode::Custom(iroh::RelayMap::from_iter(urls))
+    iroh::RelayMode::Custom(iroh::RelayMap::from_iter(
+        std::iter::once(own).chain(urls.into_iter().filter(|_| !own_only)),
+    ))
+}
+
+/// Our own relay (home relay, found by phones through the endpoint id).
+const OWN_RELAY: &str = "https://relay.yak.dsktd.net";
+
+/// Our own relay is the home relay when it answers; otherwise n0's relays take over.
+///
+/// The endpoint id is only published after this returns, so the new key of the rebound
+/// endpoint never leaves a stale QR behind.
+async fn bind_iroh() -> Result<iroh::Endpoint, iroh::endpoint::BindError> {
+    bind_with(OWN_RELAY, std::time::Duration::from_secs(5))
+        .await
+        .map(|(endpoint, _)| endpoint)
+}
+
+/// Bind with `own` alone and wait up to `wait` for it; else rebind with n0's relays too.
+/// The flag tells whether our own relay answered.
+async fn bind_with(
+    own: &str,
+    wait: std::time::Duration,
+) -> Result<(iroh::Endpoint, bool), iroh::endpoint::BindError> {
+    let bind = |own_only| {
+        iroh::Endpoint::builder(iroh::endpoint::presets::N0)
+            .relay_mode(relays(own, own_only))
+            .alpns(vec![ALPN.to_vec()])
+            .bind()
+    };
+    let endpoint = bind(true).await?;
+    if tokio::time::timeout(wait, endpoint.online()).await.is_ok() {
+        return Ok((endpoint, true));
+    }
+    endpoint.close().await;
+    Ok((bind(false).await?, false))
 }
 
 /// Accept phones over iroh: relayed or direct QUIC, newline-delimited JSON on one stream.
@@ -764,6 +800,20 @@ mod tests {
             let mut sink = Vec::new();
             let closed = tokio::time::timeout(std::time::Duration::from_secs(5), stream.read_to_end(&mut sink)).await;
             assert!(closed.is_ok());
+        });
+    }
+
+    #[test]
+    fn unreachable_own_relay_falls_back() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let wait = std::time::Duration::from_millis(300);
+            let (endpoint, own_ok) = bind_with("https://127.0.0.1:1", wait).await.unwrap();
+            assert!(!own_ok);
+            endpoint.close().await;
         });
     }
 }

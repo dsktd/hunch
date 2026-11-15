@@ -16,11 +16,13 @@ use iroh::endpoint::presets;
 /// Must match the game.
 pub const ALPN: &[u8] = b"hunch/pad/1";
 
-/// n0's relays without the trailing dot iroh writes in their hostnames: `WebKit` (every iOS
+/// Our own relay, then n0's relays (fallback), those without the trailing dot iroh writes in their hostnames: `WebKit` (every iOS
 /// browser) rejects the TLS certificate of `use1-1.relay.n0.iroh.link.`. The game uses the
 /// same map, so the home relay it publishes is one a browser can dial.
 pub fn relays() -> iroh::RelayMode {
     use iroh::defaults::prod;
+    let own: iroh::RelayUrl = "https://relay.yak.dsktd.net".parse().expect("relay url");
+    let own = iroh::RelayConfig::from(own);
     let urls = [
         prod::NA_EAST_RELAY_HOSTNAME,
         prod::NA_WEST_RELAY_HOSTNAME,
@@ -33,7 +35,7 @@ pub fn relays() -> iroh::RelayMode {
             .expect("relay url");
         iroh::RelayConfig::from(url)
     });
-    iroh::RelayMode::Custom(iroh::RelayMap::from_iter(urls))
+    iroh::RelayMode::Custom(iroh::RelayMap::from_iter(std::iter::once(own).chain(urls)))
 }
 
 /// An open link: send lines on `outgoing`, read lines from `incoming`.
