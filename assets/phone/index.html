@@ -91,14 +91,16 @@ async function connect() {
   const mine = ++attempt;
   if (game) {
     cover("Connecting...", true);
-    let gaveUp = false;
-    const timer = setTimeout(() => { gaveUp = true; if (mine === attempt && !fallback()) cover("Game not found, scan the code again.", false); }, 10000);
+    // With a local page to move to, a stall hands over to it (the page is replaced, so no race is
+    // possible: a Pages page cannot open the local self-signed socket). Without one, keep waiting
+    // and accept a late connect.
+    const timer = setTimeout(() => { if (mine === attempt) fallback(); }, 10000);
     try {
       const pad = await import("./pkg/hunch_pad.js");
       await pad.default();
       const l = await pad.connect(game, (line) => receive(line), closed);
       clearTimeout(timer);
-      if (gaveUp || mine !== attempt) return;
+      if (mine !== attempt) { l.close && l.close(); return; }
       l.send(JSON.stringify({ t: "join", pin, token, name: playerName(), v: PROTOCOL }));
       link = { send: (text) => l.send(text) };
       opened();
