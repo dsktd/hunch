@@ -193,20 +193,25 @@ impl Seats {
 /// The largest websocket message or frame the LAN side accepts, the same as the iroh stream's.
 pub const MAX_MESSAGE: usize = 65_536;
 
-/// Messages one connection may send per second before it is dropped.
-pub const MAX_PER_SECOND: u32 = 60;
-
-/// A one-second window message counter.
+/// A token bucket: `per_second` messages sustained, `burst` at once.
 pub struct Rate {
-    start: Instant,
-    count: u32,
+    per_second: f64,
+    burst: f64,
+    tokens: f64,
+    last: Instant,
 }
 
 impl Rate {
-    pub const fn new(now: Instant) -> Self {
+    pub fn new(
+        now: Instant,
+        per_second: u32,
+        burst: u32,
+    ) -> Self {
         Self {
-            start: now,
-            count: 0,
+            per_second: f64::from(per_second),
+            burst: f64::from(burst),
+            tokens: f64::from(burst),
+            last: now,
         }
     }
 
@@ -215,12 +220,14 @@ impl Rate {
         &mut self,
         now: Instant,
     ) -> bool {
-        if now.duration_since(self.start) >= Duration::from_secs(1) {
-            self.start = now;
-            self.count = 0;
+        let gained = now.duration_since(self.last).as_secs_f64() * self.per_second;
+        self.last = now;
+        self.tokens = (self.tokens + gained).min(self.burst);
+        if self.tokens < 1.0 {
+            return false;
         }
-        self.count += 1;
-        self.count <= MAX_PER_SECOND
+        self.tokens -= 1.0;
+        true
     }
 }
 
@@ -324,11 +331,20 @@ mod tests {
     #[test]
     fn a_connection_over_the_message_rate_is_refused() {
         let t0 = Instant::now();
-        let mut rate = Rate::new(t0);
-        for _ in 0..MAX_PER_SECOND {
+        let mut rate = Rate::new(t0, 20, 40);
+        for _ in 0..40 {
             assert!(rate.allow(t0));
         }
         assert!(!rate.allow(t0));
-        assert!(rate.allow(t0 + Duration::from_secs(1)));
+        assert!(rate.allow(t0 + Duration::from_millis(100)));
+    }
+
+    #[test]
+    fn a_steady_stream_under_the_rate_is_never_refused() {
+        let t0 = Instant::now();
+        let mut rate = Rate::new(t0, 20, 40);
+        for n in 0..1000 {
+            assert!(rate.allow(t0 + Duration::from_millis(n * 50)));
+        }
     }
 }

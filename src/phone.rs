@@ -397,7 +397,7 @@ async fn session(
     let _ = shared.tx.send(Inbound::Joined { id, name });
     let (mut sink, mut stream) = ws.split();
     let mut out = shared.out.subscribe();
-    let mut rate = Rate::new(Instant::now());
+    let mut rate = Rate::new(Instant::now(), RATE, BURST);
     let _ = sink.send(WsMessage::Text(hello(id).into())).await;
     loop {
         tokio::select! {
@@ -450,6 +450,10 @@ fn for_phone(
 
 /// Phones kept in the seat table: twice the players, so reloads find their seat.
 const SEAT_CAP: usize = MAX_PLAYERS * 2;
+
+/// Messages a phone may send: sustained per second, and at once. Phones here only tap.
+const RATE: u32 = 20;
+const BURST: u32 = 40;
 
 #[derive(Debug)]
 enum Denied {
@@ -546,7 +550,7 @@ async fn iroh_session(
     let mut buf: Vec<u8> = Vec::new();
     let mut chunk = vec![0u8; 4096];
     let mut id = None;
-    let mut rate = Rate::new(Instant::now());
+    let mut rate = Rate::new(Instant::now(), RATE, BURST);
     let mut out = shared.out.subscribe();
     'session: loop {
         tokio::select! {
