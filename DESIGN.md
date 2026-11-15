@@ -36,7 +36,10 @@ lives in plain-Rust modules. Their unit tests need neither Bevy nor a GPU.
 
 ```
 Cargo.toml            hunch (bin + lib), lints as strict as GGP's (pedantic, nursery, cargo)
-src/main.rs           window setup (fullscreen on Deck), adds hunch::plugin
+src/main.rs           window setup (fullscreen on Deck), adds hunch::plugin; until the TV screens
+                      land, a console host (prints QR + phases, host keys on stdin)
+src/fuzzy.rs          answer matching for bluffs (normalise, number words, edit distance)
+src/filter.rs         fake checks and the family filter
 src/lib.rs            plugin(app), prelude, GameState
 src/game.rs           pure state machine: Game, Phase, Event, tick(now) -> no Bevy
 src/score.rs          pure scoring: points, streaks, multipliers
@@ -185,8 +188,9 @@ pub trait Generator: Send {
 }
 ```
 
-Categories (a vote offers 3, drawn at random): Capitals, Big & Small (population/area
-comparisons), Elements, When Was That (years), Space, Animals, Languages & Money, Mixed Bag.
+Categories (a vote offers 3, drawn at random), one per bundled table: Capitals, Big & Small
+(population/area comparisons), Elements, Summer Games (Olympic hosts and years), Moons, Money.
+Bluff rounds draw from every category but Big & Small.
 The Claude generator adds no categories of its own. It produces questions for the same categories,
 so offline fallback always has a match.
 
@@ -231,7 +235,7 @@ is on:
   questions" chip whenever the current question came from Claude. Prompts ask for
   well-established facts only: nothing after the model's training data, no opinions, no
   "trick" phrasing.
-- **Fallback**: on a timeout (8 s per request), an HTTP error, a parse failure or too few valid
+- **Fallback**: on a timeout (20 s per request), an HTTP error, a parse failure or too few valid
   questions, the offline generator fills the gap for that slot. The TV shows a small "offline
   questions" chip, and the game never stalls. The API key is read from the environment only. It is
   never logged, written, committed or shipped.
@@ -240,11 +244,12 @@ is on:
 
 ## 8. Data sources and licences
 
-- `data/countries.tsv`: country, capital, continent, population (millions, rounded), area km²,
-  currency, main language.
+- `data/countries.tsv`: country, capital, continent, population, area km², currency (`-` for
+  countries that use several).
 - `data/elements.tsv`: number, symbol, name.
-- `data/events.tsv`: year, event phrase ("the first person walked on the Moon").
-- `data/space.tsv`, `data/animals.tsv`: small hand-checked fact tables.
+- `data/olympics.tsv`: year, host city, country of the Summer Olympic Games.
+- `data/moons.tsv`: named moons of Mars, Jupiter, Saturn, Uranus and Neptune.
+- `data/filter.txt`: the family filter's word list.
 
 The tables are not hand-typed: `tools/refresh-data.py` (committed) generates them from the Wikidata
 SPARQL endpoint (https://query.wikidata.org/sparql). Each TSV starts with a header comment that holds
