@@ -19,6 +19,15 @@ and the Penpot design.
 
 ## 2. Host engine: Bevy 0.20 (2D + UI only)
 
+**TV prototype = web page; native TV later (Bevy or a native webview wrapper, to decide).** To try the
+UI interactively soon, the host serves the TV as a page on `http://127.0.0.1:7880/tv` (`src/tv.rs`,
+`assets/tv/index.html`; `HUNCH_TV_PORT` overrides the port). The page is a pure view: the host
+pushes one `tv::Tv` state per change over `/tv/ws` and the page renders it and sends host keys back
+(arrows/WASD, Enter/Space, Esc/Backspace, gamepad d-pad/A/B/Start). All rules stay in `game.rs`, so
+a native front end replaces the page without touching them. The console (QR, phases, stdin keys)
+stays alongside. On the Deck a launcher starts the host and opens `/tv` in a kiosk browser (§11).
+The Bevy plan below is the native candidate:
+
 Chosen over macroquad, egui and a web-tech host:
 
 - The Deck path is already proven in GGP: Game Mode fullscreen (`SteamDeck=1`), gilrs gamepads,
@@ -345,7 +354,13 @@ connection chip.
 
 ## 11. Steam Deck
 
-Same as GGP: `deck-build.sh` (cargo-zigbuild, `x86_64-unknown-linux-gnu.2.35`, `-C target-cpu=znver2`,
+While the TV is the web prototype, the Game Mode entry runs `deck/hunch-tv.sh`: it starts the host,
+opens `/tv` full screen in a kiosk browser on the Deck (Zen, a Firefox flatpak, with its own profile)
+and stops the host when the browser closes. The host binary is built on the desktop as below; the
+Deck never builds. `deck/art.sh` makes the Steam library art from the game's own look, and
+`deck/shortcut.py` adds the library entry (with Steam stopped, like GGP).
+
+Native build, same as GGP: `deck-build.sh` (cargo-zigbuild, `x86_64-unknown-linux-gnu.2.35`, `-C target-cpu=znver2`,
 its own target dir, `deck-dev` profile), fullscreen 1280×800 when `SteamDeck` is set, and gamepad
 navigation through gilrs. Deck deployment is Tally's job: this repo only builds the binary.
 
@@ -365,7 +380,9 @@ navigation through gilrs. Deck deployment is Tally's job: this repo only builds 
 - **Pad join** (`tools/pad_join_test.py`): `pad-host` stand-in, and the Pages site joins from Chromium and
   WebKit over iroh. Then every phone screen is laid out on the GGP device matrix, checking the safe
   area, 56 px targets and no clipped text, with screenshots as a CI artifact.
-- **TV screenshots**: `hunch shots` drives fake players through every screen. Rendered headless under
+- **TV page** (`tools/pad-test.sh tv [shot dir]`): the real host, its `/tv` page and two phones in
+  headless Chromium play the first round, steered only by keys on the TV page.
+- **TV screenshots** (native TV): `hunch shots` drives fake players through every screen. Rendered headless under
   cage with RADV, under `flock ~/claude/.services/locks/gpu.lock`, skipped while
   `~/claude/.services/locks/games-running` says desktop. Published with `claude-view publish`.
 - **CI** (GitHub Actions, frugal, path-filtered): `fmt --check`, `clippy --all-targets -D warnings`
