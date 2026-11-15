@@ -1,0 +1,45 @@
+# Wikidata (CC0), https://query.wikidata.org/sparql, retrieved 2026-11-14
+# SELECT ?g ?gLabel (SAMPLE(?cityLabel) AS ?city) (SAMPLE(?ctryLabel) AS ?country)
+#        (COUNT(DISTINCT ?cityE) AS ?ncity)
+# WHERE {
+#   ?g wdt:P31 ?edition ; wdt:P276 ?cityE .
+#   ?edition rdfs:label "Summer Olympic Games edition"@en .
+#   ?cityE wdt:P17 ?ctry .
+#   FILTER NOT EXISTS { ?cityE wdt:P31/wdt:P279* wd:Q811979 }
+#   ?cityE rdfs:label ?cityLabel . FILTER(LANG(?cityLabel) = "en")
+#   ?ctry rdfs:label ?ctryLabel . FILTER(LANG(?ctryLabel) = "en")
+#   ?g rdfs:label ?gLabel . FILTER(LANG(?gLabel) = "en")
+#   FILTER(REGEX(?gLabel, "^[0-9]{4} Summer Olympics$"))
+# }
+# GROUP BY ?g ?gLabel
+# HAVING (?ncity = 1)
+qid	year	city	country
+Q8080	1896	Athens	Greece
+Q8088	1900	Paris	France
+Q8098	1904	St. Louis	United States
+Q8111	1908	London	United Kingdom
+Q8118	1912	Stockholm	Sweden
+Q8128	1920	Antwerp	Belgium
+Q8132	1924	Paris	France
+Q8138	1928	Amsterdam	Netherlands
+Q8143	1932	Los Angeles	United States
+Q8150	1936	Berlin	Germany
+Q8403	1948	London	United Kingdom
+Q8407	1952	Helsinki	Finland
+Q8411	1956	Melbourne	Australia
+Q8415	1960	Rome	Italy
+Q8420	1964	Tokyo	Japan
+Q8429	1968	Mexico City	Mexico
+Q8444	1976	Montreal	Canada
+Q8450	1980	Moscow	Russia
+Q8456	1984	Los Angeles	United States
+Q8470	1988	Seoul	South Korea
+Q8488	1992	Barcelona	Spain
+Q8531	1996	Atlanta	United States
+Q8544	2000	Sydney	Australia
+Q8558	2004	Athens	Greece
+Q8567	2008	Beijing	People's Republic of China
+Q8577	2012	London	United Kingdom
+Q8613	2016	Rio de Janeiro	Brazil
+Q181278	2020	Tokyo	Japan
+Q995653	2024	Paris	France
