@@ -11,8 +11,11 @@ use axum::extract::State as AxumState;
 use axum::extract::ws::Message as WsMessage;
 use axum::extract::ws::WebSocket;
 use axum::extract::ws::WebSocketUpgrade;
+use axum::http::HeaderMap;
+use axum::http::StatusCode;
 use axum::response::Html;
 use axum::response::IntoResponse;
+use axum::response::Response;
 use axum::routing::get;
 use futures_util::SinkExt;
 use futures_util::StreamExt;
@@ -433,13 +436,30 @@ async fn serve(
     }
 }
 
+/// Only the page this host serves may drive it: a browser always sends Origin on a websocket, and it
+/// must name the same loopback host the request went to (a page on another site, or a rebound DNS
+/// name, would differ).
+fn own_origin(headers: &HeaderMap) -> bool {
+    let text = |name| headers.get(name).and_then(|v| v.to_str().ok());
+    let (Some(origin), Some(host)) = (text("origin"), text("host")) else {
+        return false;
+    };
+    let loopback = host.starts_with("127.0.0.1:") || host.starts_with("localhost:");
+    loopback && origin.strip_prefix("http://") == Some(host)
+}
+
 async fn socket(
     upgrade: WebSocketUpgrade,
+    headers: HeaderMap,
     AxumState(shared): AxumState<Shared>,
-) -> impl IntoResponse {
+) -> Response {
+    if !own_origin(&headers) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
     upgrade
         .max_message_size(256)
         .on_upgrade(move |ws| session(ws, shared))
+        .into_response()
 }
 
 async fn session(
@@ -509,6 +529,31 @@ mod tests {
         let tv = view(&game, &join(), 10.0);
         assert!(matches!(tv.screen, Screen::Category { ref options, .. } if options.len() == 3));
         assert!(tv.timer.is_some());
+    }
+
+    #[test]
+    fn only_the_own_page_may_connect() {
+        let headers = |origin: Option<&str>, host: &str| {
+            let mut h = HeaderMap::new();
+            h.insert("host", host.parse().unwrap());
+            if let Some(origin) = origin {
+                h.insert("origin", origin.parse().unwrap());
+            }
+            h
+        };
+        assert!(own_origin(&headers(
+            Some("http://127.0.0.1:7880"),
+            "127.0.0.1:7880"
+        )));
+        assert!(!own_origin(&headers(
+            Some("http://evil.example"),
+            "127.0.0.1:7880"
+        )));
+        assert!(!own_origin(&headers(
+            Some("http://evil.example:7880"),
+            "evil.example:7880"
+        )));
+        assert!(!own_origin(&headers(None, "127.0.0.1:7880")));
     }
 
     #[test]
