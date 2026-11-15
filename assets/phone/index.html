@@ -43,6 +43,7 @@
   <input id="name" maxlength="12" placeholder="Your name" autocomplete="nickname">
   <button id="go" class="primary">Join</button>
   <button id="cancel" hidden>Cancel</button>
+  <a id="lan" class="btn" hidden><button>Same Wi-Fi? Use the local page</button></a>
 </div>
 <div id="app" class="safe" hidden>
   <div class="bar"><span id="me-colour" class="swatch"></span><b id="me-name" class="grow"></b><span id="me-score"></span><span id="net" class="dim"></span></div>
@@ -55,14 +56,12 @@
 const PROTOCOL = 1;
 const $ = (id) => document.getElementById(id);
 // LAN: ?pin= on the game's own HTTPS page. Anywhere: #g=<game id>&pin= on GitHub Pages, in the
-// fragment so no server logs it; the link then goes over relays.
+// fragment so no server logs it; the link then goes over iroh relays.
 const hash = new URLSearchParams(location.hash.slice(1));
 const game = hash.get("g");
 const pin = hash.get("pin") || new URLSearchParams(location.search).get("pin") || prompt("Room PIN") || "";
 const lan = /^[0-9A-Fa-f.:\[\]]+$/.test(hash.get("lan") || "") ? hash.get("lan") : null;
-const local = lan ? `https://${lan}/?pin=${encodeURIComponent(pin)}` : null;
-// Silent fallback: when the first route fails or stalls, move to the game's own page.
-const fallback = () => { if (local) { location.replace(local); return true; } return false; };
+if (lan) $("lan").href = `https://${lan}/?pin=${encodeURIComponent(pin)}`;
 const store = (key, value) => { try { if (value === undefined) return localStorage.getItem(key); localStorage.setItem(key, value); } catch (e) {} return null; };
 $("name").value = store("hunch-name") || "";
 const playerName = () => { const name = $("name").value.trim().slice(0, 12); store("hunch-name", name); return name; };
@@ -80,9 +79,9 @@ function cover(text, busy) {
   $("go").hidden = busy; $("cancel").hidden = !busy;
   $("go").textContent = busy ? "" : view ? "Rejoin" : "Join";
 }
-function closed() { link = null; clearInterval(pinger); cover("Disconnected. Check the PIN or scan the code again.", false); }
-function opened() {
-  $("cover").hidden = true; $("app").hidden = false; $("net").textContent = "";
+function closed() { link = null; clearInterval(pinger); cover("Disconnected. Wrong PIN, or the game closed.", false); if (lan) $("lan").hidden = false; }
+function opened(how) {
+  $("cover").hidden = true; $("app").hidden = false; $("net").textContent = how;
   clearInterval(pinger);
   pinger = setInterval(() => send({ t: "ping", ms: performance.now() }), 5000);
 }
@@ -90,30 +89,27 @@ function opened() {
 async function connect() {
   const mine = ++attempt;
   if (game) {
-    cover("Connecting...", true);
-    // With a local page to move to, a stall hands over to it (the page is replaced, so no race is
-    // possible: a Pages page cannot open the local self-signed socket). Without one, keep waiting
-    // and accept a late connect.
-    const timer = setTimeout(() => { if (mine === attempt) fallback(); }, 10000);
+    cover("Connecting through the internet...", true);
+    let gaveUp = false;
+    const timer = setTimeout(() => { gaveUp = true; if (mine === attempt) { cover("Game not found, scan the QR code again.", false); if (lan) $("lan").hidden = false; } }, 10000);
     try {
       const pad = await import("./pkg/hunch_pad.js");
       await pad.default();
       const l = await pad.connect(game, (line) => receive(line), closed);
       clearTimeout(timer);
-      if (mine !== attempt) { l.close && l.close(); return; }
+      if (gaveUp || mine !== attempt) return;
       l.send(JSON.stringify({ t: "join", pin, token, name: playerName(), v: PROTOCOL }));
       link = { send: (text) => l.send(text) };
-      opened();
+      opened("Online");
     } catch (e) {
       clearTimeout(timer);
-      console.warn(e);
-      if (mine === attempt && !fallback()) cover("Game not found, scan the code again.", false);
+      if (mine === attempt) { cover(`Could not reach the game: ${e}`, false); if (lan) $("lan").hidden = false; }
     }
     return;
   }
   cover("Connecting...", true);
   const ws = new WebSocket(`wss://${location.host}/ws?pin=${encodeURIComponent(pin)}&token=${token}&name=${encodeURIComponent(playerName())}`);
-  ws.onopen = () => { link = ws; opened(); };
+  ws.onopen = () => { link = ws; opened("LAN"); };
   ws.onclose = closed;
   ws.onmessage = (event) => receive(event.data);
 }
