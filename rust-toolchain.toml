@@ -1,0 +1,5 @@
+# One pinned toolchain for the Nix dev shell and CI, so lint results cannot drift apart.
+[toolchain]
+channel = "1.100.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

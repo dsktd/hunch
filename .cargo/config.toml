@@ -1,0 +1,5 @@
+# Native Linux builds link with mold. A RUSTFLAGS env var replaces `rustflags` here, and
+# cargo-zigbuild (deck-build.sh, release) sets its own linker, so those builds are unaffected.
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]
