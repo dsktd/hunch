@@ -6,14 +6,13 @@ license = "Unlicense"
 description = "Hunch: a party trivia game for the big screen, with phones as answer pads and questions made on the fly"
 repository = "https://github.com/dsktd/hunch"
 readme = "README.md"
-keywords = ["game", "trivia", "party", "bevy"]
+keywords = ["game", "trivia", "party"]
 categories = ["games"]
 
 [dependencies]
-# BEVY: 2D and UI only, no 3D renderer
-bevy = { version = "0.20.1", default-features = false, features = ["2d", "ui", "audio", "wav"] }
-
 rand = "0.9"
+strsim = "0.11" # edit distance for bluff answers
+unicode-normalization = "0.1" # accent folding for answer matching
 
 # PHONES (the transport follows Gobble Grand Prix's src/phone.rs)
 anyhow = "1"
@@ -57,7 +56,7 @@ incremental = true
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
 cargo = { level = "warn", priority = -1 }
-# Bevy's dependency tree pulls several versions of the same crate; not ours to fix.
+# The iroh and axum trees pull several versions of the same crate; not ours to fix.
 multiple_crate_versions = "allow"
 # Bevy systems take Res/Query/Commands parameters by value; the signature is the API.
 needless_pass_by_value = "allow"
@@ -74,3 +73,9 @@ too_many_lines = "allow"
 redundant_pub_crate = "allow"
 similar_names = "allow"
 trivially_copy_pass_by_ref = "allow"
+# The library is the game's own; #[must_use] and error docs on every pub fn add noise for no reader.
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+# Sets of used question keys are always the std hasher.
+implicit_hasher = "allow"

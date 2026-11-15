@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<title>Hunch</title>
+<!-- Functional page; the visual design (pending) replaces the styles, not the protocol code.
+     Connection code adapted from Gobble Grand Prix's assets/phone/index.html (Unlicense). -->
+<style>
+  @font-face { font-family: Lilita; src: url("fonts/LilitaOne-Regular.ttf"); }
+  @font-face { font-family: Atkinson; font-weight: 400; src: url("fonts/AtkinsonHyperlegible-Regular.ttf"); }
+  @font-face { font-family: Atkinson; font-weight: 700; src: url("fonts/AtkinsonHyperlegible-Bold.ttf"); }
+  :root { --bg: #111; --fg: #f5f5f5; --dim: #aaa; --accent: #ff2d55; --hit: 56px;
+    --sa-t: env(safe-area-inset-top, 0px); --sa-r: env(safe-area-inset-right, 0px);
+    --sa-b: env(safe-area-inset-bottom, 0px); --sa-l: env(safe-area-inset-left, 0px); }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 400 20px Atkinson, system-ui, sans-serif; }
+  [hidden] { display: none !important; }
+  .safe { position: fixed; inset: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+    padding: calc(var(--sa-t) + 16px) calc(var(--sa-r) + 16px) calc(var(--sa-b) + 16px) calc(var(--sa-l) + 16px); }
+  h1 { font: 400 40px Lilita, sans-serif; margin: 0; }
+  h2 { font: 400 26px Lilita, sans-serif; margin: 0; }
+  button, input { font: 700 20px Atkinson, sans-serif; min-height: var(--hit); border: 0; border-radius: 12px; padding: 0 16px; }
+  button { background: #333; color: var(--fg); width: 100%; padding: 8px 16px; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+  p, h1, h2, b, li { overflow-wrap: anywhere; }
+  button.primary { background: var(--accent); }
+  input { background: #fff; color: #000; width: 100%; }
+  .bar { display: flex; align-items: center; gap: 12px; min-height: 40px; }
+  .swatch { width: 24px; height: 24px; border-radius: 6px; flex: none; }
+  .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .error { color: var(--accent); font-weight: 700; }
+  .timer { height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
+  .timer i { display: block; height: 100%; background: var(--accent); transform-origin: left; }
+  .choices { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+  ul { margin: 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+<div id="cover" class="safe">
+  <h1>Hunch</h1>
+  <div id="status">Join the game.</div>
+  <input id="name" maxlength="12" placeholder="Your name" autocomplete="nickname">
+  <button id="go" class="primary">Join</button>
+  <button id="cancel" hidden>Cancel</button>
+  <a id="lan" class="btn" hidden><button>Same Wi-Fi? Use the local page</button></a>
+</div>
+<div id="app" class="safe" hidden>
+  <div class="bar"><span id="me-colour" class="swatch"></span><b id="me-name" class="grow"></b><span id="me-score"></span><span id="net" class="dim"></span></div>
+  <div id="timer" class="timer" hidden><i></i></div>
+  <div id="error" class="error" hidden></div>
+  <div id="screen"></div>
+</div>
+<script>
+"use strict";
+const PROTOCOL = 1;
+const $ = (id) => document.getElementById(id);
+// LAN: ?pin= on the game's own HTTPS page. Anywhere: #g=<game id>&pin= on GitHub Pages, in the
+// fragment so no server logs it; the link then goes over iroh relays.
+const hash = new URLSearchParams(location.hash.slice(1));
+const game = hash.get("g");
+const pin = hash.get("pin") || new URLSearchParams(location.search).get("pin") || prompt("Room PIN") || "";
+const lan = /^[0-9A-Fa-f.:\[\]]+$/.test(hash.get("lan") || "") ? hash.get("lan") : null;
+if (lan) $("lan").href = `https://${lan}/?pin=${encodeURIComponent(pin)}`;
+const store = (key, value) => { try { if (value === undefined) return localStorage.getItem(key); localStorage.setItem(key, value); } catch (e) {} return null; };
+$("name").value = store("hunch-name") || "";
+const playerName = () => { const name = $("name").value.trim().slice(0, 12); store("hunch-name", name); return name; };
+let token = store("hunch-token");
+if (!token) {
+  token = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("");
+  store("hunch-token", token);
+}
+let link = null, attempt = 0, view = null, timerStart = 0, pinger = null;
+const send = (msg) => { if (link) link.send(JSON.stringify(msg)); };
+
+function cover(text, busy) {
+  $("cover").hidden = false; $("app").hidden = true;
+  $("status").textContent = text;
+  $("go").hidden = busy; $("cancel").hidden = !busy;
+  $("go").textContent = busy ? "" : view ? "Rejoin" : "Join";
+}
+function closed() { link = null; clearInterval(pinger); cover("Disconnected. Wrong PIN, or the game closed.", false); if (lan) $("lan").hidden = false; }
+function opened(how) {
+  $("cover").hidden = true; $("app").hidden = false; $("net").textContent = how;
+  clearInterval(pinger);
+  pinger = setInterval(() => send({ t: "ping", ms: performance.now() }), 5000);
+}
+
+async function connect() {
+  const mine = ++attempt;
+  if (game) {
+    cover("Connecting through the internet...", true);
+    let gaveUp = false;
+    const timer = setTimeout(() => { gaveUp = true; if (mine === attempt) { cover("Game not found, scan the QR code again.", false); if (lan) $("lan").hidden = false; } }, 10000);
+    try {
+      const pad = await import("./pkg/hunch_pad.js");
+      await pad.default();
+      const l = await pad.connect(game, (line) => receive(line), closed);
+      clearTimeout(timer);
+      if (gaveUp || mine !== attempt) return;
+      l.send(JSON.stringify({ t: "join", pin, token, name: playerName(), v: PROTOCOL }));
+      link = { send: (text) => l.send(text) };
+      opened("Online");
+    } catch (e) {
+      clearTimeout(timer);
+      if (mine === attempt) { cover(`Could not reach the game: ${e}`, false); if (lan) $("lan").hidden = false; }
+    }
+    return;
+  }
+  cover("Connecting...", true);
+  const ws = new WebSocket(`wss://${location.host}/ws?pin=${encodeURIComponent(pin)}&token=${token}&name=${encodeURIComponent(playerName())}`);
+  ws.onopen = () => { link = ws; opened("LAN"); };
+  ws.onclose = closed;
+  ws.onmessage = (event) => receive(event.data);
+}
+$("go").onclick = connect;
+$("cancel").onclick = () => { attempt++; if (link && link.close) { link.onclose = null; link.close(); } link = null; cover("Join the game.", false); };
+
+function el(tag, text, cls) { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; }
+function button(text, onclick, primary) { const b = el("button", text, primary ? "primary" : ""); b.onclick = onclick; return b; }
+
+function receive(text) {
+  const msg = JSON.parse(text);
+  if (msg.t === "hello" && msg.v !== PROTOCOL) { cover("Update needed: reload this page.", false); link = null; return; }
+  if (msg.t === "denied") { cover("Wrong PIN.", false); return; }
+  if (msg.t === "full") { cover("The game is full (8 players).", false); return; }
+  if (msg.t === "pong") { $("net").textContent = `${Math.round(performance.now() - msg.ms)} ms`; return; }
+  if (msg.t === "buzz" && navigator.vibrate) navigator.vibrate(msg.ms);
+  if (msg.t === "view") render(msg);
+}
+
+function render(v) {
+  const changed = !view || view.seq !== v.seq || view.screen !== v.screen;
+  view = v;
+  $("me-colour").style.background = v.me.colour;
+  $("me-name").textContent = v.me.name + (v.me.lead ? " (lead)" : "");
+  $("me-score").textContent = v.me.score;
+  $("error").hidden = !v.error; $("error").textContent = v.error || "";
+  $("timer").hidden = !v.timer;
+  if (v.timer && changed) timerStart = performance.now() - (v.timer.limit_ms - v.timer.left_ms);
+  const s = $("screen");
+  const keep = s.querySelector("input");
+  if (!changed && keep && v.screen === "write") return;
+  s.replaceChildren();
+  const q = v.seq;
+  switch (v.screen) {
+    case "lobby": {
+      s.append(el("h2", "You're in!"));
+      const list = el("ul");
+      for (const p of v.players) list.append(el("li", p.name + (p.connected ? "" : " (away)")));
+      s.append(list);
+      if (v.few) s.append(el("p", "Best with 3 or more players.", "dim"));
+      if (v.me.lead) s.append(button("Start game", () => send({ t: "start" }), true));
+      else s.append(el("p", "Waiting for the host...", "dim"));
+      break;
+    }
+    case "wait": s.append(el("h2", v.line)); break;
+    case "category": {
+      s.append(el("h2", v.voted === null ? "Pick a category" : `Voted: ${v.options[v.voted]}`));
+      if (v.voted === null) v.options.forEach((o, i) => s.append(button(o, () => send({ t: "vote", q, i }))));
+      break;
+    }
+    case "choice": {
+      s.append(el("p", v.prompt));
+      const grid = el("div", undefined, "choices");
+      v.choices.forEach((c, i) => grid.append(button(`${"ABCD"[i]}  ${c}`, () => send({ t: "answer", q, i }))));
+      s.append(grid);
+      break;
+    }
+    case "answered": s.append(el("h2", `Locked in: ${"ABCD"[v.choice]}`), el("p", v.text), el("p", "Waiting for the others...", "dim")); break;
+    case "write": {
+      s.append(el("p", v.prompt));
+      const input = el("input"); input.maxLength = 40; input.placeholder = "A fake answer that sounds true";
+      s.append(input, button("Send fake", () => send({ t: "write", q, text: input.value }), true));
+      break;
+    }
+    case "written": s.append(el("h2", "Your fake:"), el("p", v.text), el("p", "Waiting for the others...", "dim")); break;
+    case "vote": {
+      s.append(el("p", v.prompt), el("h2", "Which one is true?"));
+      for (const o of v.options) s.append(button(o.text, () => send({ t: "vote", q, i: o.i })));
+      break;
+    }
+    case "voted": s.append(el("h2", "You picked:"), el("p", v.text)); break;
+    case "result": {
+      const head = v.correct === null ? "Too slow!" : v.correct ? (v.bluff ? "Found the truth!" : "Right!") : (v.bluff ? "Fooled!" : "Wrong!");
+      s.append(el("h1", head), el("p", `+${v.gained}`));
+      if (v.streak > 1) s.append(el("p", `${v.streak} in a row`));
+      if (v.fooled) s.append(el("p", `Your fake fooled ${v.fooled}`));
+      if (v.gained && navigator.vibrate) navigator.vibrate(80);
+      break;
+    }
+    case "scores": s.append(el("h1", `#${v.me.place}`), el("p", v.above ? `${v.gap} behind ${v.above}` : "You're in front!")); break;
+    case "podium": {
+      s.append(el("h1", `#${v.me.place}`), el("p", `${v.me.score} points`));
+      if (v.me.lead) s.append(button("Play again", () => send({ t: "start" }), true));
+      break;
+    }
+  }
+}
+
+(function frame() {
+  if (view && view.timer) {
+    const left = Math.max(0, 1 - (performance.now() - timerStart) / view.timer.limit_ms);
+    $("timer").firstElementChild.style.transform = `scaleX(${left})`;
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

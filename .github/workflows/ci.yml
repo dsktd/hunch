@@ -1,17 +1,16 @@
 name: CI
 
-# Quick lint only: fmt and clippy. Lint levels live in Cargo.toml [lints]; `just lint` runs the same commands.
+# fmt, clippy (lint levels in Cargo.toml [lints]) and the unit tests.
 on:
   push:
     branches: [main]
-    paths: ["src/**", "Cargo.*", "rustfmt.toml", ".github/workflows/ci.yml"]
+    paths: ["src/**", "data/**", "assets/**", "Cargo.*", "rustfmt.toml", ".github/workflows/ci.yml"]
   pull_request:
   workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
-  # Never interrupt a run; a newer push waits as the single pending one.
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -19,16 +18,17 @@ env:
   CARGO_PROFILE_DEV_DEBUG: 0
 
 jobs:
-  lint:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Rust toolchain (rust-toolchain.toml)
         run: rustup toolchain install
       - run: cargo fmt --all --check
-      - name: Linux deps
-        run: ci/linux-deps.sh
+      - name: Linker (.cargo/config.toml links with mold)
+        run: sudo apt-get install -y --no-install-recommends mold clang
       - uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo clippy --all-targets --all-features --locked -- -D warnings
+      - run: cargo test --lib --locked

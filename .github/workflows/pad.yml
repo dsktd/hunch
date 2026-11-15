@@ -1,0 +1,58 @@
+name: Pad
+
+# The phone page (Pages page + iroh wasm) must join a stand-in game from Chromium and WebKit,
+# and every phone screen must fit phone and iPad viewports.
+# Only runs when the pad or the page changes.
+on:
+  pull_request:
+    paths: ["pad/**", "assets/phone/**", "assets/fonts/**", "src/phone.rs", "src/protocol.rs", "tools/pad_join_test.py", ".github/workflows/pad.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: pad-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  join:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: pad
+    steps:
+      - uses: actions/checkout@v5
+      - name: Rust stable with wasm (pad/ is its own crate, like pad/build.sh)
+        run: rustup toolchain install stable --profile minimal --target wasm32-unknown-unknown
+      - name: Linker (.cargo/config.toml links native builds with mold)
+        run: sudo apt-get install -y --no-install-recommends mold clang
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: pad
+          save-if: false
+      - name: wasm-bindgen (version from pad/Cargo.lock)
+        run: |
+          v=$(grep -A1 '^name = "wasm-bindgen"$' Cargo.lock | sed -n 's/version = "\(.*\)"/\1/p')
+          curl -sSfL "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/$v/wasm-bindgen-$v-x86_64-unknown-linux-musl.tar.gz" \
+            | tar xz --strip-components=1 -C /usr/local/bin "wasm-bindgen-$v-x86_64-unknown-linux-musl/wasm-bindgen"
+      - name: Build pad-host and the wasm pad
+        run: |
+          cargo +stable build --release --locked --bin pad-host
+          CC_wasm32_unknown_unknown=clang cargo +stable build --release --locked --lib --target wasm32-unknown-unknown
+          wasm-bindgen --target web --no-typescript --out-dir pkg target/wasm32-unknown-unknown/release/hunch_pad.wasm
+          ./site.sh ../site
+      - name: Playwright
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium webkit
+      - name: Join from Chromium and WebKit, then lay out every screen on phone viewports
+        run: python ../tools/pad_join_test.py target/release/pad-host ../site ../pad-shots
+      - name: Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pad-shots
+          path: pad-shots
