@@ -45,7 +45,7 @@ pub const ALPN: &[u8] = b"hunch/pad/1";
 pub const PAGES: &str = "https://dsktd.github.io/hunch/pad/";
 const PAGE: &str = include_str!("../assets/phone/index.html");
 /// Files the page loads next to itself.
-const FILES: &[(&str, &str, &[u8])] = &[
+pub(crate) const FILES: &[(&str, &str, &[u8])] = &[
     (
         "/fonts/LilitaOne-Regular.ttf",
         "font/ttf",

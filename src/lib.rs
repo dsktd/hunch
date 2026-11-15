@@ -11,3 +11,4 @@ mod phone_guard;
 pub mod protocol;
 pub mod questions;
 pub mod score;
+pub mod tv;

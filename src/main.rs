@@ -1,5 +1,6 @@
-//! Hunch host. Until the TV screens land this is a console host: it serves phones, prints the
-//! join link, a QR code and each phase, and takes host keys on stdin (w/s/a/d, Enter = ok, b = back).
+//! Hunch host: serves phones and the TV page (a prototype on localhost, see DESIGN.md), and also
+//! prints the join link, a QR code and each phase and takes host keys on stdin (w/s/a/d, Enter = ok,
+//! b = back).
 
 use std::io::BufRead;
 use std::io::Write;
@@ -26,6 +27,10 @@ fn main() {
         eprintln!("hunch: phones are needed to play");
         return;
     };
+    let mut tv = hunch::tv::Server::start();
+    if let Some(tv) = &tv {
+        println!("TV: {}", tv.url);
+    }
     let keys = stdin_keys();
     let mut sync = protocol::Sync::default();
     let start = Instant::now();
@@ -55,10 +60,14 @@ fn main() {
                 }
             }
         }
-        for key in keys.try_iter() {
+        let tv_keys = tv.as_ref().map_or_else(Vec::new, hunch::tv::Server::keys);
+        for key in keys.try_iter().chain(tv_keys) {
             game.handle(Event::Host(key), now);
         }
         game.tick(now);
+        if let Some(tv) = &mut tv {
+            tv.show(hunch::tv::view(&game, &server.join, now));
+        }
         for message in sync.views(&game, now) {
             server.send(message);
         }
@@ -68,6 +77,10 @@ fn main() {
             print_phase(&game);
         }
         std::thread::sleep(Duration::from_millis(50));
+    }
+    if let Some(tv) = &tv {
+        tv.close();
+        std::thread::sleep(Duration::from_millis(300));
     }
 }
 

@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hunch</title>
+<!-- The TV prototype. A pure view: it renders the state the host pushes on /tv/ws and sends host
+     keys back (arrows/WASD, Enter/Space = OK, Esc/Backspace = back; gamepad d-pad, A, B, Start).
+     No game rules live here. Colours and type follow the UI spec (ui-spec.md). -->
+<style>
+@font-face { font-family: Lilita; src: url(tv/fonts/LilitaOne-Regular.ttf); }
+@font-face { font-family: Atkinson; src: url(tv/fonts/AtkinsonHyperlegible-Regular.ttf); }
+@font-face { font-family: Atkinson; font-weight: 700; src: url(tv/fonts/AtkinsonHyperlegible-Bold.ttf); }
+:root {
+  --ink9: #15112E; --ink8: #221C47; --ink6: #3A3270; --paper: #FFF2DA; --paper3: #E5CFA8;
+  --teal: #14C8B4; --teal7: #0B8F82; --mag: #F2297F; --mag7: #A8155A; --gold: #FFC53D; --alarm: #FF4B3A;
+  --a: #14C8B4; --b: #F2297F; --c: #FFC53D; --d: #9C7BFF;
+}
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; background: var(--ink9); color: var(--paper); overflow: hidden; }
+body { font: 700 24px/1.25 Atkinson, sans-serif; cursor: none; }
+/* 1280x800 stage scaled to the window */
+#stage { position: absolute; left: 50%; top: 50%; width: 1280px; height: 800px; transform-origin: 0 0;
+  background:
+    linear-gradient(115deg, transparent 30%, rgba(156,123,255,.10) 30% 42%, transparent 42%),
+    linear-gradient(65deg, transparent 58%, rgba(156,123,255,.10) 58% 68%, transparent 68%),
+    var(--ink9); overflow: hidden; }
+.h1 { font: 400 48px/1.1 Lilita, sans-serif; color: var(--paper); }
+.label { font-size: 18px; }
+.muted { color: var(--paper3); }
+.slab { background: var(--ink8); transform: skewX(-8deg); }
+.slab > * { transform: skewX(8deg); }
+/* ransom heading: one block per letter */
+.ransom { display: inline-flex; gap: 2px; }
+.ransom span { display: inline-block; font: 400 1em/1 Lilita, sans-serif; padding: .08em .14em; }
+.paper { background: var(--paper); color: var(--ink9); box-shadow: 6px 7px 0 var(--paper3);
+  clip-path: polygon(0 2%, 8% 0, 20% 3%, 33% 0, 47% 2%, 60% 0, 74% 3%, 88% 0, 100% 2%, 99% 50%, 100% 98%, 85% 100%, 70% 97%, 55% 100%, 40% 97%, 25% 100%, 10% 97%, 0 100%, 1% 50%); }
+#top { position: absolute; left: 48px; right: 48px; top: 28px; display: flex; justify-content: space-between; align-items: center; }
+#body { position: absolute; left: 48px; right: 48px; top: 100px; bottom: 170px; }
+#timer { position: absolute; left: 48px; right: 48px; top: 652px; height: 24px; }
+#timer .track { position: absolute; inset: 0; }
+#timer .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--teal); transform: skewX(-8deg); transition: width .25s linear; }
+#timer.alarm .fill { background: var(--alarm); }
+#timer .tag { position: absolute; top: -14px; width: 60px; height: 52px; background: var(--paper); color: var(--ink9);
+  font: 400 34px/52px Lilita; text-align: center; margin-left: -30px; }
+#chips { position: absolute; left: 48px; right: 48px; top: 700px; height: 56px; display: flex; gap: 4px; }
+.chip { flex: 0 0 140px; height: 56px; padding: 4px 8px 4px 22px; position: relative; font-size: 18px; line-height: 1.2; }
+.chip::before { content: ""; position: absolute; left: 6px; top: 6px; bottom: 6px; width: 8px; background: var(--seat); }
+.chip .st { font-size: 15px; color: var(--paper3); }
+.chip.done { background: var(--paper); color: var(--ink9); box-shadow: 4px 4px 0 var(--seat); }
+.chip.done .st { color: var(--mag7); }
+.chip.off { opacity: .45; }
+.chip .score { position: absolute; right: 8px; top: 4px; font: 400 22px Lilita; }
+/* lobby */
+#lobby { display: grid; grid-template-columns: 320px 1fr 340px; gap: 36px; height: 100%; }
+#qrcard { padding: 22px; text-align: center; }
+#qr { width: 272px; height: 272px; image-rendering: pixelated; }
+#pin { font: 400 54px/1.1 Lilita; color: var(--mag); letter-spacing: .1em; }
+.seats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; margin-top: 12px; }
+.seats .chip { flex: none; }
+.menu { margin-top: 12px; display: grid; gap: 14px; }
+.menu .row { display: flex; justify-content: space-between; padding: 10px 22px; font-size: 26px; }
+.menu .row.focus { background: var(--teal); color: var(--ink9); box-shadow: 6px 6px 0 var(--mag); }
+.menu .row.off { opacity: .4; }
+/* questions */
+.cat { display: inline-block; background: var(--mag); padding: 4px 18px; font: 400 26px Lilita; transform: skewX(-8deg); }
+.prompt { margin-top: 18px; padding: 26px 34px; font-size: 34px; line-height: 1.25; }
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 32px; margin-top: 26px; }
+.tile { height: 92px; display: flex; align-items: center; gap: 16px; padding: 0 20px; color: var(--ink9); font-size: 26px; line-height: 1.15;
+  transform: skewX(-8deg); position: relative; }
+.tile > * { transform: skewX(8deg); }
+.tile .g { flex: 0 0 52px; height: 52px; background: var(--ink9); color: var(--paper); font: 400 26px/52px Lilita; text-align: center; }
+.tile.dim { opacity: .3; }
+.tile.right { outline: 6px solid var(--gold); box-shadow: 8px 8px 0 var(--mag); }
+.tile .who { position: absolute; right: 14px; bottom: 4px; font-size: 15px; }
+.stamp { display: inline-block; font: 400 40px Lilita; color: var(--ink9); background: var(--gold); padding: 4px 18px; transform: rotate(-4deg); }
+.note { margin-top: 20px; font-weight: 400; font-size: 22px; color: var(--paper3); }
+.bluffs { display: grid; gap: 12px; margin-top: 22px; }
+.bluff { display: flex; justify-content: space-between; padding: 12px 24px; font-size: 26px; }
+.bluff.truth { background: var(--gold); color: var(--ink9); }
+.bluff .by { font-size: 18px; color: var(--paper3); }
+.bluff.truth .by { color: var(--ink8); }
+/* intro, scores, podium */
+.center { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; text-align: center; }
+.banner { background: var(--mag); padding: 30px 80px; transform: rotate(-3deg); box-shadow: 10px 12px 0 var(--teal); font-size: 96px; }
+.rule { padding: 18px 40px; font-size: 30px; }
+.board { display: grid; gap: 10px; width: 760px; }
+.board .line { display: grid; grid-template-columns: 60px 1fr 90px 120px; align-items: center; padding: 8px 20px; font-size: 28px; }
+.board .line.first { background: var(--gold); color: var(--ink9); }
+.board .line b { font: 400 34px Lilita; }
+#pause { position: absolute; inset: 0; background: rgba(21,17,46,.85); display: none; align-items: center; justify-content: center; flex-direction: column; gap: 18px; }
+#pause.on { display: flex; }
+#hints { position: absolute; left: 0; right: 0; bottom: 0; height: 44px; border-top: 4px solid var(--mag); display: flex; justify-content: flex-end; gap: 32px; padding: 6px 48px; font-size: 18px; color: var(--paper3); }
+#gone { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; }
+#gone.on { display: flex; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="top"></div>
+  <div id="body"></div>
+  <div id="timer" hidden><div class="track slab"></div><div class="fill"></div><div class="tag"></div></div>
+  <div id="chips"></div>
+  <div id="hints"><span>&#x271A; Choose</span><span>A / Enter: OK</span><span>B / Esc: Back</span></div>
+  <div id="pause"><div class="ransom h1" data-text="PAUSED"></div><div class="muted">OK to go on</div></div>
+  <div id="gone" class="h1">Looking for the game...</div>
+</div>
+<script>
+"use strict";
+let tv = null;           // the latest state from the host; tests read it
+let ws = null;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const SLOTS = [["a", "A"], ["b", "B"], ["c", "C"], ["d", "D"]];
+const PAIRS = [["#F2297F", "#FFF2DA"], ["#FFF2DA", "#15112E"], ["#14C8B4", "#15112E"], ["#15112E", "#FFF2DA"], ["#E5CFA8", "#A8155A"]];
+
+function ransom(text) {
+  let seed = 0;
+  for (const c of text) seed = (seed * 31 + c.charCodeAt(0)) >>> 0;
+  return [...text].map((c, i) => {
+    if (c === " ") return '<span style="width:.35em"></span>';
+    const [bg, fg] = PAIRS[(seed + i * 7) % PAIRS.length];
+    const rot = [-6, -4, -2, 2, 4, 6][(seed + i * 5) % 6];
+    return `<span style="background:${bg};color:${fg};transform:rotate(${rot}deg)">${esc(c)}</span>`;
+  }).join("");
+}
+
+function fit() {
+  const s = Math.min(innerWidth / 1280, innerHeight / 800);
+  $("stage").style.transform = `scale(${s}) translate(-50%, -50%)`;
+}
+addEventListener("resize", fit);
+fit();
+
+function chip(p, status) {
+  const cls = ["chip", "slab", p.done ? "done" : "", p.connected ? "" : "off"].join(" ");
+  return `<div class="${cls}" style="--seat:${p.colour}"><div>${esc(p.name)}</div><div class="st">${esc(status)}</div></div>`;
+}
+
+function qr(canvas, side, bits) {
+  canvas.width = side + 4; canvas.height = side + 4;
+  const g = canvas.getContext("2d");
+  g.fillStyle = "#FFF2DA"; g.fillRect(0, 0, side + 4, side + 4);
+  g.fillStyle = "#15112E";
+  for (let i = 0; i < bits.length; i++) if (bits[i] === "1") g.fillRect(2 + (i % side), 2 + Math.floor(i / side), 1, 1);
+}
+
+function tiles(s) {
+  return `<div class="tiles">${s.choices.map((c, i) => {
+    const [k, g] = SLOTS[i];
+    const cls = s.answer == null ? "" : (i === s.answer ? "right" : "dim");
+    const who = s.picks.length ? `<span class="who">${esc(s.picks[i].join(", "))}</span>` : "";
+    return `<div class="tile ${cls}" style="background:var(--${k})"><span class="g">${g}</span><span>${esc(c)}</span>${who}</div>`;
+  }).join("")}</div>`;
+}
+
+const SCREENS = {
+  lobby(s) {
+    const seats = tv.players.map((p) => chip(p, p.connected ? "ready" : "offline")).join("")
+      + Array.from({ length: Math.max(0, 8 - tv.players.length) }, () => '<div class="chip slab" style="--seat:var(--ink6);opacity:.5"><div class="st">waiting...</div></div>').join("");
+    const menu = s.menu.map((r, i) => `<div class="row slab ${i === s.focus ? "focus" : ""} ${r.enabled ? "" : "off"}"><span>${esc(r.label)}</span>${r.value ? `<span>&lt; ${esc(r.value)} &gt;</span>` : ""}</div>`).join("");
+    return `<div id="lobby">
+      <div><div id="qrcard" class="paper"><canvas id="qr"></canvas><div class="label">Scan to join</div><div id="pin">PIN ${esc(tv.join.pin)}</div></div>
+        <div class="label muted" style="margin-top:14px">Scan with your phone camera, then type the PIN</div></div>
+      <div><div class="h1">PLAYERS ${tv.players.length}/8</div><div class="seats">${seats}</div></div>
+      <div><div class="h1">GAME</div><div class="menu">${menu}</div></div></div>`;
+  },
+  intro() {
+    const r = tv.round;
+    return `<div class="center"><div class="h1" style="color:var(--teal)">ROUND ${r.n} OF ${r.of}</div>
+      <div class="banner"><span class="ransom">${ransom(r.name.toUpperCase())}</span></div>
+      ${r.multiplier > 1 ? `<div class="stamp">x${r.multiplier} points this round</div>` : ""}
+      <div class="rule paper">${esc(r.rule)}</div></div>`;
+  },
+  category(s) {
+    return `<div class="center"><div class="h1">Vote a category on your phone</div>
+      <div class="tiles" style="grid-template-columns:1fr;width:700px">${s.options.map((o, i) =>
+        `<div class="tile" style="background:var(--${SLOTS[i][0]})"><span class="g">${SLOTS[i][1]}</span><span>${esc(o)}</span><span class="who">${s.votes[i] ? s.votes[i] + " vote" + (s.votes[i] > 1 ? "s" : "") : ""}</span></div>`).join("")}</div></div>`;
+  },
+  question(s) {
+    const r = tv.round;
+    return `<span class="cat">${esc(s.category)}</span> <span class="label muted">&nbsp; Q ${Math.min(r.asked + 1, r.questions)}/${r.questions}</span>
+      <div class="prompt paper">${esc(s.prompt)}</div>${tiles(s)}
+      ${s.note ? `<div class="note">${esc(s.note)}</div>` : ""}`;
+  },
+  write(s) {
+    return `<span class="cat">${esc(s.category)}</span>
+      <div class="prompt paper">${esc(s.prompt)}</div>
+      <div class="center" style="height:auto;margin-top:40px"><div class="h1">Write a fake answer on your phone</div>
+      <div class="muted">Fool the others. Find the truth later.</div></div>`;
+  },
+  vote(s) {
+    return `<div class="prompt paper">${esc(s.prompt)}</div>
+      <div class="h1" style="margin-top:22px;font-size:36px">Which one is true?</div>
+      <div class="bluffs">${s.options.map((o) => `<div class="bluff slab"><span>${esc(o)}</span></div>`).join("")}</div>`;
+  },
+  bluff(s) {
+    return `<div class="prompt paper">${esc(s.prompt)}</div>
+      <div class="bluffs">${s.shown.map((o) => `<div class="bluff slab ${o.truth ? "truth" : ""}"><span>${o.truth ? "TRUTH: " : ""}${esc(o.text)}</span>
+        <span class="by">${o.truth ? "" : (o.authors.length ? "by " + esc(o.authors.join(", ")) : "house fake")}${o.voters.length ? " &middot; picked by " + esc(o.voters.join(", ")) : ""}</span></div>`).join("")}</div>
+      ${s.note ? `<div class="note">${esc(s.note)}</div>` : ""}`;
+  },
+  scores() { return board("SCORES"); },
+  podium() { return board("WINNER"); },
+};
+
+function board(title) {
+  const rows = [...tv.players].sort((a, b) => a.place - b.place).map((p) =>
+    `<div class="line slab ${p.place === 1 ? "first" : ""}"><b>${p.place}</b><span>${esc(p.name)}</span><span>${p.gained && title === "SCORES" ? "+" + p.gained : ""}</span><b>${p.score}</b></div>`).join("");
+  return `<div class="center"><div class="ransom" style="font-size:72px">${ransom(title)}</div><div class="board">${rows}</div>
+    ${title === "WINNER" ? '<div class="muted">OK: play again &middot; Back: lobby</div>' : ""}</div>`;
+}
+
+function chipStatus(p) {
+  if (!p.connected) return "offline";
+  if (tv.screen === "question" && tv.picks?.length) return p.correct ? `+${p.gained}` : "missed";
+  if (["category", "question", "write", "vote"].includes(tv.screen)) return p.done ? "LOCKED" : "thinking...";
+  return `${p.score} pts`;
+}
+
+function render() {
+  const s = tv;
+  $("body").innerHTML = (SCREENS[s.screen] || (() => ""))(s);
+  $("top").innerHTML = s.screen === "lobby" ? `<div class="ransom" style="font-size:64px">${ransom("HUNCH")}</div>` : `<span class="label muted">ROUND ${s.round.n}/${s.round.of} &middot; ${esc(s.round.name)}</span>`;
+  if (s.screen === "lobby") qr($("qr"), s.join.qr_side, s.join.qr);
+  $("chips").innerHTML = s.screen === "lobby" ? "" : s.players.map((p) => chip(p, chipStatus(p))).join("");
+  $("pause").classList.toggle("on", s.paused);
+  timer();
+}
+
+let timerAt = 0;
+function timer() {
+  const t = tv && tv.timer;
+  $("timer").hidden = !t;
+  if (!t) return;
+  const left = Math.max(0, t.left_ms - (tv.paused ? 0 : performance.now() - timerAt));
+  const frac = left / t.limit_ms;
+  $("timer").querySelector(".fill").style.width = `${frac * 100}%`;
+  const tag = $("timer").querySelector(".tag");
+  tag.style.left = `${frac * 100}%`;
+  tag.textContent = Math.ceil(left / 1000);
+  $("timer").classList.toggle("alarm", left < 5000);
+}
+setInterval(timer, 250);
+
+let closed = false;
+function connect() {
+  ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/tv/ws`);
+  ws.onmessage = (e) => {
+    tv = JSON.parse(e.data);
+    if (tv.screen === "closed") { closed = true; $("gone").textContent = "Game closed"; $("gone").classList.add("on"); return; }
+    timerAt = performance.now();
+    $("gone").classList.remove("on");
+    render();
+  };
+  ws.onclose = () => { $("gone").classList.add("on"); if (!closed) setTimeout(connect, 1000); };
+}
+connect();
+document.querySelector("#pause .ransom").innerHTML = ransom("PAUSED");
+
+function send(key) { if (ws && ws.readyState === 1) ws.send(key); }
+const KEYS = { ArrowUp: "up", w: "up", ArrowDown: "down", s: "down", ArrowLeft: "left", a: "left", ArrowRight: "right", d: "right",
+  Enter: "ok", " ": "ok", Escape: "back", Backspace: "back", b: "back" };
+addEventListener("keydown", (e) => { const k = KEYS[e.key]; if (k) { e.preventDefault(); send(k); } });
+
+// Gamepad: d-pad 12-15, A 0, B 1, Start 9 (pause = back)
+const PAD = { 12: "up", 13: "down", 14: "left", 15: "right", 0: "ok", 1: "back", 9: "back" };
+const held = {};
+function pads() {
+  for (const pad of navigator.getGamepads ? navigator.getGamepads() : []) {
+    if (!pad) continue;
+    for (const [b, key] of Object.entries(PAD)) {
+      const id = `${pad.index}:${b}`, down = !!pad.buttons[b]?.pressed;
+      if (down && !held[id]) send(key);
+      held[id] = down;
+    }
+  }
+  requestAnimationFrame(pads);
+}
+requestAnimationFrame(pads);
+</script>
+</body>
+</html>
