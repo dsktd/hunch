@@ -24,13 +24,18 @@ EXCLUDE = {
 OVERRIDE = {
     "Q115": {"currency": "birr"},  # label typo "bir"
     "Q414": {"currency": "Argentine peso"},  # sample picked the 1992-era convertible peso
+    "Q419": {"currency": "Peruvian sol"},  # "Nuevo sol" was renamed in 2015
+    "Q96": {"currency": "Mexican peso"},  # label is the bare "peso"
+    "Q686": {"currency": "vatu"},  # label "Vanuatu vatus"
+    "Q717": {"currency": "Venezuelan bolívar"},  # label names the 2018 "sovereign" issue
+    "Q874": {"currency": "Turkmen manat"},  # label "Turkmenistan new manat"
 }
 
 ENDPOINT = "https://query.wikidata.org/sparql"
 AGENT = "hunch-data-refresh/0.1 (https://github.com/dsktd/hunch)"
 
 TABLES = {
-    # Sovereign states with exactly one capital, one continent, one currency
+    # Sovereign states with exactly one capital; currency "-" when they use several (continent: any one of theirs, it only steers distractors)
     "countries": (
         ["qid", "country", "capital", "continent", "population", "area_km2", "currency"],
         """
@@ -46,10 +51,10 @@ WHERE {
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }
 GROUP BY ?c ?cLabel
-HAVING (?ncap = 1 && ?ncont = 1 && ?ncur = 1)
+HAVING (?ncap = 1)
 """,
         lambda b: [b["cLabel"], b["capital"], b["continent"], str(round(float(b["population"]))),
-                   str(round(float(b["area_km2"]))), b["currency"]],
+                   str(round(float(b["area_km2"]))), b["currency"] if b["ncur"] == "1" else "-"],
     ),
     "elements": (
         ["qid", "number", "symbol", "element"],

@@ -11,7 +11,7 @@
 #   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 # }
 # GROUP BY ?c ?cLabel
-# HAVING (?ncap = 1 && ?ncont = 1 && ?ncur = 1)
+# HAVING (?ncap = 1)
 qid	country	capital	continent	population	area_km2	currency
 Q889	Afghanistan	Kabul	Asia	41454761	652230	afghani
 Q222	Albania	Tirana	Europe	2811655	28748	Albanian lek
@@ -31,6 +31,7 @@ Q31	Belgium	Brussels	Europe	11825551	30688	euro
 Q242	Belize	Belmopan	North America	411106	22966	Belize dollar
 Q962	Benin	Porto-Novo	Africa	14111034	114763	West African CFA franc
 Q917	Bhutan	Thimphu	Asia	787424	38394	ngultrum
+Q225	Bosnia and Herzegovina	Sarajevo	Europe	3816459	51209	-
 Q963	Botswana	Gaborone	Africa	2480244	581737	Botswana pula
 Q155	Brazil	Brasília	South America	214211951	8509361	Brazilian real
 Q921	Brunei	Bandar Seri Begawan	Asia	458949	5765	Brunei dollar
@@ -57,6 +58,7 @@ Q784	Dominica	Roseau	North America	74656	751	Eastern Caribbean dollar
 Q786	Dominican Republic	Santo Domingo	North America	10760028	48671	Dominican peso
 Q736	Ecuador	Quito	South America	16938986	257204	United States dollar
 Q79	Egypt	Cairo	Africa	114535772	1010408	Egyptian pound
+Q792	El Salvador	San Salvador	North America	6029976	21041	-
 Q983	Equatorial Guinea	Ciudad de la Paz	Africa	1847549	28051	Central African CFA franc
 Q986	Eritrea	Asmara	Africa	3497000	117600	nakfa
 Q191	Estonia	Tallinn	Europe	1369995	45335	euro
@@ -64,6 +66,7 @@ Q115	Ethiopia	Addis Ababa	Africa	128691692	1129819	birr
 Q702	Federated States of Micronesia	Palikir	Oceania	75817	702	United States dollar
 Q712	Fiji	Suva	Insular Oceania	926276	18274	Fijian dollar
 Q33	Finland	Helsinki	Europe	5652881	338478	euro
+Q142	France	Paris	Europe	68605616	643801	-
 Q1000	Gabon	Libreville	Africa	2025137	267667	Central African CFA franc
 Q230	Georgia	Tbilisi	Europe	3929581	69700	Georgian lari
 Q183	Germany	Berlin	Europe	83467117	357588	euro
@@ -89,13 +92,18 @@ Q1008	Ivory Coast	Yamoussoukro	Africa	31165654	322463	West African CFA franc
 Q766	Jamaica	Kingston	North America	2697983	10992	Jamaican dollar
 Q17	Japan	Tokyo	Asia	123802000	377974	yen
 Q810	Jordan	Amman	Asia	10428241	89341	Jordanian dinar
+Q232	Kazakhstan	Astana	Asia	20139914	2724910	Kazakhstani tenge
 Q114	Kenya	Nairobi	Africa	48468138	581309	Kenyan shilling
+Q756617	Kingdom of Denmark	Copenhagen	Europe	5930987	2220930	-
+Q29999	Kingdom of the Netherlands	Amsterdam	Europe	17100715	42201	-
+Q710	Kiribati	South Tarawa	Insular Oceania	134518	811	-
 Q1246	Kosovo	Pristina	Europe	1586659	10909	euro
 Q817	Kuwait	Kuwait City	Asia	4464000	17818	Kuwaiti dinar
 Q813	Kyrgyzstan	Bishkek	Asia	7281800	199951	Kyrgyz som
 Q819	Laos	Vientiane	Asia	6858160	236800	Lao kip
 Q211	Latvia	Riga	Europe	1845096	64594	euro
 Q822	Lebanon	Beirut	Asia	6100075	10452	Lebanese pound
+Q1013	Lesotho	Maseru	Africa	2007201	30355	-
 Q1014	Liberia	Monrovia	Africa	5214030	111369	Liberian dollar
 Q1016	Libya	Tripoli	Africa	7381023	1759540	Libyan dinar
 Q347	Liechtenstein	Vaduz	Europe	37922	160	Swiss franc
@@ -107,9 +115,10 @@ Q833	Malaysia	Kuala Lumpur	Asia	34231700	330803	Malaysian ringgit
 Q826	Maldives	Malé	Asia	436330	298	Maldivian rufiyaa
 Q912	Mali	Bamako	Africa	22395489	1241231	West African CFA franc
 Q233	Malta	Valletta	Europe	553214	316	euro
+Q709	Marshall Islands	Majuro	Oceania	53127	181	-
 Q1025	Mauritania	Nouakchott	Africa	4736139	1030700	Mauritanian ouguiya
 Q1027	Mauritius	Port Louis	Africa	1264613	2040	Mauritian rupee
-Q96	Mexico	Mexico City	North America	132274416	1960647	peso
+Q96	Mexico	Mexico City	North America	132274416	1960647	Mexican peso
 Q217	Moldova	Chișinău	Europe	2409207	33844	Moldovan leu
 Q235	Monaco	Monaco	Europe	38857	2	euro
 Q711	Mongolia	Ulaanbaatar	Asia	3409939	1564116	Mongolian tögrög
@@ -117,6 +126,7 @@ Q236	Montenegro	Podgorica	Europe	617213	13883	euro
 Q1028	Morocco	Rabat	Africa	36828330	446550	Moroccan dirham
 Q1029	Mozambique	Maputo	Africa	29668834	801590	Mozambican metical
 Q836	Myanmar	Naypyidaw	Asia	53370609	676577	kyat
+Q1030	Namibia	Windhoek	Africa	2533794	825615	-
 Q697	Nauru	Yaren District	Oceania	13650	21	Australian dollar
 Q837	Nepal	Kathmandu	Asia	29164578	147181	Nepalese rupee
 Q664	New Zealand	Wellington	Oceania	5307800	268021	New Zealand dollar
@@ -128,16 +138,19 @@ Q221	North Macedonia	Skopje	Europe	1836713	25713	Macedonian denar
 Q20	Norway	Oslo	Europe	5627400	385207	Norwegian krone
 Q842	Oman	Muscat	Asia	4829480	309500	Omani rial
 Q843	Pakistan	Islamabad	Asia	223773700	881913	Pakistani rupee
+Q695	Palau	Ngerulmud	Insular Oceania	21729	466	United States dollar
+Q804	Panama	Panama City	North America	4570133	74177	-
 Q691	Papua New Guinea	Port Moresby	Oceania	8935000	462840	kina
 Q733	Paraguay	Asunción	South America	6811297	406756	Paraguayan guaraní
 Q148	People's Republic of China	Beijing	Asia	1404890000	9562910	renminbi
-Q419	Peru	Lima	South America	34157732	1285216	Nuevo sol
+Q419	Peru	Lima	South America	34157732	1285216	Peruvian sol
 Q928	Philippines	Manila	Asia	112729484	343448	Philippine peso
 Q36	Poland	Warsaw	Europe	37563071	312683	złoty
 Q45	Portugal	Lisbon	Europe	10347892	92225	euro
 Q846	Qatar	Doha	Asia	2639211	11437	Qatari riyal
 Q971	Republic of the Congo	Brazzaville	Africa	6142180	342000	Central African CFA franc
 Q218	Romania	Bucharest	Europe	19053815	238397	Romanian leu
+Q159	Russia	Moscow	Asia	146119928	17098246	Russian ruble
 Q1037	Rwanda	Kigali	Africa	14569341	26338	Rwandan franc
 Q763	Saint Kitts and Nevis	Basseterre	North America	46922	272	Eastern Caribbean dollar
 Q760	Saint Lucia	Castries	North America	167591	617	Eastern Caribbean dollar
@@ -152,7 +165,9 @@ Q1044	Sierra Leone	Freetown	Africa	7557212	71740	leone
 Q334	Singapore	Singapore	Asia	5866139	719	Singapore dollar
 Q214	Slovakia	Bratislava	Europe	5409407	49034	euro
 Q215	Slovenia	Ljubljana	Europe	2066880	20271	euro
+Q685	Solomon Islands	Honiara	Insular Oceania	611343	28400	Solomon Islands dollar
 Q1045	Somalia	Mogadishu	Africa	11031386	637657	Somali shilling
+Q884	South Korea	Seoul	Asia	51466201	100295	-
 Q958	South Sudan	Juba	Africa	12575714	644329	South Sudanese pound
 Q29	Spain	Madrid	Europe	48592909	505990	euro
 Q1049	Sudan	Khartoum	Africa	40533330	1878000	Sudanese pound
@@ -167,11 +182,14 @@ Q924	Tanzania	Dodoma	Africa	57310019	947303	Tanzanian shilling
 Q869	Thailand	Bangkok	Asia	66188503	513120	baht
 Q778	The Bahamas	Nassau	North America	399440	13878	Bahamian dollar
 Q1005	The Gambia	Banjul	Africa	2639916	11300	dalasi
+Q574	Timor-Leste	Dili	Asia	1400638	14919	-
 Q945	Togo	Lomé	Africa	7797694	56785	West African CFA franc
 Q678	Tonga	Nukuʻalofa	Oceania	108020	749	Tongan paʻanga
 Q754	Trinidad and Tobago	Port of Spain	North America	1369125	5128	Trinidad and Tobago dollar
 Q948	Tunisia	Tunis	Africa	11565204	163610	Tunisian dinar
-Q874	Turkmenistan	Ashgabat	Asia	6117933	491210	Turkmenistan new manat
+Q43	Turkey	Ankara	Europe	85372377	783562	Turkish lira
+Q874	Turkmenistan	Ashgabat	Asia	6117933	491210	Turkmen manat
+Q672	Tuvalu	Funafuti	Insular Oceania	10643	26	-
 Q1036	Uganda	Kampala	Africa	47123531	241038	Ugandan shilling
 Q212	Ukraine	Kyiv	Europe	41167335	603550	hryvnia
 Q878	United Arab Emirates	Abu Dhabi	Asia	9890400	83600	United Arab Emirates dirham
@@ -179,8 +197,9 @@ Q145	United Kingdom	London	Europe	67326569	242495	pound sterling
 Q30	United States	Washington, D.C.	North America	340110988	9833517	United States dollar
 Q77	Uruguay	Montevideo	South America	3444263	176215	Uruguayan peso
 Q265	Uzbekistan	Tashkent	Asia	34915100	448978	Uzbek som
-Q686	Vanuatu	Port Vila	Insular Oceania	300019	12190	Vanuatu vatus
+Q686	Vanuatu	Port Vila	Insular Oceania	300019	12190	vatu
 Q237	Vatican City	Vatican City	Europe	949	0	euro
-Q717	Venezuela	Caracas	South America	31250306	912050	sovereign bolivar
+Q717	Venezuela	Caracas	South America	31250306	912050	Venezuelan bolívar
 Q881	Vietnam	Hanoi	Asia	96208984	331690	Vietnamese đồng
 Q953	Zambia	Lusaka	Africa	19610769	752618	Zambian Kwacha
+Q954	Zimbabwe	Harare	Africa	15178979	390757	-
