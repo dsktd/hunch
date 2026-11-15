@@ -148,7 +148,9 @@ async def main(host_bin, site, shots=None):
     host = subprocess.Popen([host_bin, "120"], stdout=subprocess.PIPE, text=True)
     line = host.stdout.readline().split()
     assert line[:1] == ["id"], f"pad-host: {line}"
-    url = f"http://127.0.0.1:{server.server_port}/pad/#g={line[1]}&pin=1234&lan=127.0.0.1:7777"
+    url = f"http://127.0.0.1:{server.server_port}/pad/#g={line[1]}&pin=1234"
+    # No lan= here: with a local page the phone page moves to it after 10 s of stalling, which
+    # would leave the page mid-join. The join must succeed over iroh by itself.
     failed = False
     async with async_playwright() as p:
         for engine in ENGINES:
