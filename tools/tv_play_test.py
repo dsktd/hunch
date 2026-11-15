@@ -27,6 +27,9 @@ async def phone(page, done):
         view = await page.evaluate("typeof view === 'undefined' || !view ? null : view.screen")
         buttons = page.locator("#screen button")
         if view in ("category", "choice") and await buttons.count():
+            # Vote slowly: the round moves on once everyone has voted, and the TV page must be seen on
+            # the category screen between its 0.2 s samples
+            await asyncio.sleep(1.5)
             await buttons.nth(random.randrange(await buttons.count())).click()
 
 
