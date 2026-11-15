@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Steam Deck Game Mode entry: start the host, open its TV page full screen in a kiosk browser (Zen,
-# a Firefox flatpak, with its own profile so it never joins a running browser), and stop the host
-# when the browser closes. Lives next to the host binary in ~/Games/hunch.
+# a Firefox flatpak, with its own profile so it never joins a running browser); either side closing
+# ends the other. Lives next to the host binary in ~/Games/hunch.
 set -uo pipefail
 cd "$(dirname "$0")"
 log=host.log
@@ -20,4 +20,7 @@ done
 browser=${HUNCH_BROWSER:-app.zen_browser.zen}
 profile=$HOME/.var/app/$browser/hunch-tv
 mkdir -p "$profile"
-flatpak run "$browser" --no-remote --profile "$profile" --kiosk "$url"
+flatpak run "$browser" --no-remote --profile "$profile" --kiosk "$url" &
+# Leave when either side ends: the host quitting from its menu closes the browser too
+while kill -0 "$host" 2>/dev/null && kill -0 $! 2>/dev/null; do sleep 0.5; done
+flatpak kill "$browser" 2>/dev/null
