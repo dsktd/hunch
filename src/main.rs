@@ -78,6 +78,10 @@ fn main() {
         }
         std::thread::sleep(Duration::from_millis(50));
     }
+    if let Some(tv) = &tv {
+        tv.close();
+        std::thread::sleep(Duration::from_millis(300));
+    }
 }
 
 fn stdin_keys() -> mpsc::Receiver<Key> {

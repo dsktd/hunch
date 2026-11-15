@@ -378,6 +378,11 @@ impl Server {
         self.keys.try_iter().collect()
     }
 
+    /// Tell the page the game is over, so it shows "Game closed" and stops reconnecting.
+    pub fn close(&self) {
+        let _ = self.state.send(r#"{"screen":"closed"}"#.into());
+    }
+
     /// Push the TV state; sent only when something besides the timer changed, or once a second.
     pub fn show(
         &mut self,

@@ -243,15 +243,17 @@ function timer() {
 }
 setInterval(timer, 250);
 
+let closed = false;
 function connect() {
   ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/tv/ws`);
   ws.onmessage = (e) => {
     tv = JSON.parse(e.data);
+    if (tv.screen === "closed") { closed = true; $("gone").textContent = "Game closed"; $("gone").classList.add("on"); return; }
     timerAt = performance.now();
     $("gone").classList.remove("on");
     render();
   };
-  ws.onclose = () => { $("gone").classList.add("on"); setTimeout(connect, 1000); };
+  ws.onclose = () => { $("gone").classList.add("on"); if (!closed) setTimeout(connect, 1000); };
 }
 connect();
 document.querySelector("#pause .ransom").innerHTML = ransom("PAUSED");
