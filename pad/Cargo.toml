@@ -1,0 +1,32 @@
+[package]
+name = "hunch-pad"
+version = "0.1.0"
+edition = "2024"
+license = "Unlicense"
+description = "Hunch phone link over iroh relays, for the browser (wasm), and a stand-in host for tests."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "pad-host"
+path = "src/host.rs"
+
+[dependencies]
+async-channel = "2"
+iroh = "1.3"
+n0-future = "0.3"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.3", features = ["wasm_js"] }
+js-sys = "0.3"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
