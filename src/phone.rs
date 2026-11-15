@@ -114,7 +114,7 @@ impl Server {
             .as_ref()
             .and_then(|l| l.local_addr().ok())
             .map_or(PORT, |a| a.port());
-        let pin = format!("{:04}", rand::random_range(0..10_000));
+        let pin = format!("{:06}", rand::random_range(0..1_000_000));
         let addr = SocketAddr::new(ip, port);
         let (tx, inbound) = mpsc::channel();
         let (out, _) = broadcast::channel(512);
