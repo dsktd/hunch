@@ -120,8 +120,8 @@ fn print_join(
     }
     let _ = writeln!(
         out,
-        "Join: {link}\nSame Wi-Fi: {}\nPIN {}",
-        server.join.url, server.join.pin
+        "Join: {link}\nPIN {}",
+        server.join.pin
     );
 }
 
