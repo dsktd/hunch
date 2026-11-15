@@ -118,11 +118,7 @@ fn print_join(
             let _ = writeln!(out, "{row}");
         }
     }
-    let _ = writeln!(
-        out,
-        "Join: {link}\nSame Wi-Fi: {}\nPIN {}",
-        server.join.url, server.join.pin
-    );
+    let _ = writeln!(out, "Join: {link}\nPIN {}", server.join.pin);
 }
 
 fn print_phase(game: &Game) {

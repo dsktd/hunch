@@ -271,7 +271,7 @@ and the Penpot design. The screen *contents* below are fixed. Every answer slot 
 colour, so it reads for colour-blind players.
 
 1. **Title / Lobby**: logo "Hunch" with a wobbling question-mark mascot (a simple shape, original),
-   QR code (big, left), join URL + PIN, a "Same Wi-Fi? <lan url>" line, and the player grid: up to
+   QR code (big, left), join URL + PIN, and the player grid: up to
    8 colour chips with name and connection dot, empty slots "waiting…". Options column, navigable
    by controller: Start, Length (Short/Normal/Long), Questions (Offline / Claude, greyed without key),
    Quit. Hint bar with controller glyphs. Warning line when under 3 players.
@@ -308,8 +308,8 @@ connection chip.
 
 | screen                                                | contents                                                                                                                                    |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| cover/join                                            | logo, name field (remembered), "Join" button, PIN prompt if missing, status text, LAN link when iroh is slow                                |
-| connecting / not found / disconnected / update needed | status text, retry/cancel, LAN link                                                                                                         |
+| cover/join                                            | logo, name field (remembered), "Join" button, PIN prompt if missing, status text; falls back silently to the local page                              |
+| connecting / not found / disconnected / update needed | status text, retry/cancel                                                                                                       |
 | `lobby`                                               | "You're in!", your colour swatch, editable name, list of joined players, "Start game" for the party lead, "Waiting for the host…" otherwise |
 | `wait`                                                | big glyph + line ("Eyes on the TV") for intros, reveals and pauses                                                                          |
 | `category`                                            | 3 big category buttons; after tapping: "Voted: Space"                                                                                       |
