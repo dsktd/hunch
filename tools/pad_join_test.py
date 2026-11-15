@@ -111,7 +111,8 @@ CHECK = """([t, r, b, l, hit, fonts]) => {
     if (el.scrollWidth > el.clientWidth + 1 && style.overflow !== "visible" && !el.classList.contains("grow") && el.tagName !== "INPUT")
       bad.push(`${name(el)} overflows sideways`);
   }
-  if (fonts && !document.fonts.check("20px Lilita")) bad.push("Lilita not loaded");
+  // A face no element uses may stay unloaded (WebKit); only a file that failed counts
+  if (fonts) for (const face of document.fonts) if (face.status === "error") bad.push(`font ${face.family} ${face.weight} failed`);
   return bad;
 }"""
 
